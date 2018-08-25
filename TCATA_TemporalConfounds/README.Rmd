@@ -1,0 +1,12 @@
+---
+title: "TCATA Examples"
+output: github_document
+---
+
+# Introduction
+
+## Standard CA
+
+## Canonical CA
+
+## Escofier's Conditional CA
