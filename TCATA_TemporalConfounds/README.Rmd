@@ -5,8 +5,134 @@ output: github_document
 
 # Introduction
 
-## Standard CA
+Temporal Check-All-That-Apply (TCATA) extends classical Check-All-That-Apply (CATA) by adding a temporal dimension to the evaluation. Because TCATA extends CATA, an obvious visualization of product-attribute associations over time is to treat product x time combinations as individual observations and then use classical Correspondence Analysis (CA) to visualize the associations. Often the CA results and visualization emphasize the chronological features. However, this approach could lead to misinterpretations as time is not just a feature but also a confound. Because of time, all products might show convergence to, e.g., off flavor, which is produced only by a few observations that provide a relative but not an absolute peak in this attribute. 
+
+Therefore, we suggest alternative CA approaches to analyze TCATA data that emphasize (Canonical CA, CanCA) or remove (Escofier’s Conditional CA, ConCA) temporal effects. Generally, CanCA was designed to analyze CA data in the presence of row and column covariates; it is related to canonical correlation analysis. When there is only one set of covariates (e.g., row), CanCA is more akin to redundancy analysis. Here, we use external row information – time and product – to emphasize the overall temporal profile applying to all products. CanCA nicely displays the main product differences within the attribute space. CanCA better emphasizes than CA the unique properties of each product over time. Escofier’s conditional CA (ConCA) removes confounding effects such as time. ConCA provides two features for TCATA: (1) effects adjusted for time and (2) more appropriate measures of strength of association that can be used with CA for better visualization.
+ 
+Below we provide code chunks and output to highlight the three techniques and their properties. Code and simulated data are available [here](./DataCode/). 
+
+```{r echo=F}
+source('./DataCode/1_helpers.R')
+load('./DataCode/tcata.sim.data.rda')
+
+Y <- tcata.sim.data$DATA
+X.products <- makeNominalData(as.matrix(tcata.sim.data$DESIGNS[,1]))
+X.time <- makeNominalData(as.matrix(tcata.sim.data$DESIGNS[,2]))
+X.products.time <- makeNominalData(tcata.sim.data$DESIGNS)
+
+## standard CA
+standard.ca.res <- epCA(Y,DESIGN=X.products,make_design_nominal = F,graphs=F)
 
 ## Canonical CA
+WI <- diag(rowSums(Y))
+ 	WI <- WI / sum(WI)
+WI.star <- t(X.products.time) %*% WI %*% X.products.time
+	WI.star <- WI.star / sum(WI.star)
+WJ <- diag(colSums(Y))
+	WJ <- WJ / sum(WJ)
+R <- t(X.products.time) %*% Y
+	Or <- R / sum(R)
+can.ca.res <- simple.can.ca(Or, WI.star, WJ)
+## needed for visualiztions to align
+  can.ca.res$u[,1] <- can.ca.res$u[,1]*-1
+  can.ca.res$v[,1] <- can.ca.res$v[,1]*-1
+  can.ca.res$p[,1] <- can.ca.res$p[,1]*-1
+  can.ca.res$q[,1] <- can.ca.res$q[,1]*-1
+  can.ca.res$fi[,1] <- can.ca.res$fi[,1]*-1
+  can.ca.res$fj[,1] <- can.ca.res$fj[,1]*-1
 
-## Escofier's Conditional CA
+## Conditional CA
+    ## step 1: remove effect via Escofier method
+Y.prime <- conditional.mca.reconstruct(Y,X.time)
+    ## step 2: CA
+con.ca.res <- epCA(Y.prime,DESIGN=X.products,make_design_nominal = F,graphs=F)  
+
+
+attr.cols <- 1 #"grey40"
+prod.cols <- c("#023FA5", "#BB7784", "#E28912", "#0FCFC0")
+products <- c("PA", "PB", "PC", "PD")
+
+standard.ca.dots <- 1.5 * (rowSums(standard.ca.res$ExPosition.Data$cj[,1:2]) - min(rowSums(standard.ca.res$ExPosition.Data$cj[,1:2]))) / (max(rowSums(standard.ca.res$ExPosition.Data$cj[,1:2])) - min(rowSums(standard.ca.res$ExPosition.Data$cj[,1:2]))) + 1
+
+can.ca.dots <- 1.5 * (rowSums((can.ca.res$v^2)[,1:2]) - min(rowSums((can.ca.res$v^2)[,1:2]))) / (max(rowSums((can.ca.res$v^2)[,1:2])) - min(rowSums((can.ca.res$v^2)[,1:2]))) + 1
+
+con.ca.dots <- 1.5 * (rowSums(con.ca.res$ExPosition.Data$cj[,1:2]) - min(rowSums(con.ca.res$ExPosition.Data$cj[,1:2]))) / (max(rowSums(con.ca.res$ExPosition.Data$cj[,1:2])) - min(rowSums(con.ca.res$ExPosition.Data$cj[,1:2]))) + 1
+
+
+begin.locs <- seq(1,nrow(standard.ca.res$ExPosition.Data$fi),nrow(standard.ca.res$ExPosition.Data$fi)/4)
+end.locs <- c(begin.locs[2:length(begin.locs)]-1,nrow(standard.ca.res$ExPosition.Data$fi))
+
+```
+
+## CA
+
+```{r echo=F}
+## standard CA
+a<-prettyPlot(standard.ca.res$ExPosition.Data$fj,constraints=lapply(standard.ca.res$Plotting.Data$constraints,"*",1.2),col=attr.cols,dev.new=F,main=NULL,xlab=paste0("Component 1 (",format(round(standard.ca.res$ExPosition.Data$t[1],digits=1),nsmall=1),"%)"), ylab=paste0("Component 2 (",format(round(standard.ca.res$ExPosition.Data$t[2],digits=1),nsmall=1),"%)"), fg.col="grey", bg.col="grey", display_names=FALSE,cex=standard.ca.dots)
+
+color <- 0
+for (product in products){
+    color <- color + 1
+    xy <- standard.ca.res$ExPosition.Data$fi[product == tcata.sim.data$DESIGNS[,1],1:2]
+
+    for(i in 2:nrow(xy)) {
+        lines(xy[c(i-1,i),], col=prod.cols[color], lwd=3, pch=19)
+    }
+}
+
+text(standard.ca.res$ExPosition.Data$fi[c(begin.locs[1],end.locs[1]),],c("PA.T1","PA.T19"),col=prod.cols[1],pos=2, font=2)
+text(standard.ca.res$ExPosition.Data$fi[c(begin.locs[2],end.locs[2]),],c("PB.T1","PB.T19"),col=prod.cols[2],pos=1, font=2)
+text(standard.ca.res$ExPosition.Data$fi[c(begin.locs[3],end.locs[3]),],c("PC.T1","PC.T19"),col=prod.cols[3],pos=4, font=2)
+text(standard.ca.res$ExPosition.Data$fi[c(begin.locs[4],end.locs[4]),],c("PD.T1","PD.T19"),col=prod.cols[4],adj=c(-0,-0.5), font=2)
+
+text(standard.ca.res$ExPosition.Data$fj[-4,], labels=rownames(standard.ca.res$ExPosition.Data$fj)[-4], pos=c(3,1,3,3,3), font=2)
+text(t(standard.ca.res$ExPosition.Data$fj[4,1:2]), labels=rownames(standard.ca.res$ExPosition.Data$fj)[4], adj=c(0,1.5), font=2)
+
+```
+
+The solid lines show the responses to the products (A, B, C, D) over time. With standard CA, we can see a clear effect of time. All early time points are on the left, while all late time points are on the right. This gives the appearance that all the products share common attributes, however, this is a confound of the temporal aspect of TCATA.
+
+## CanCA
+
+```{r echo=F}
+## canonical CA
+a<-prettyPlot(can.ca.res$fj,dev.new=F,col=attr.cols,main=NULL,constraints = lapply(can.ca.res$constraints,"*",1.2),xlab=paste0("Component 1 (",round(can.ca.res$tau,digits=1)[1],"%)"), ylab=paste0("Component 2 (",round(can.ca.res$tau,digits=1)[2],"%)"),fg.col="grey", bg.col="grey", display_names=FALSE,cex= can.ca.dots)
+
+lines(can.ca.res$fi[grep("^TIME\\.",rownames(can.ca.res$fi)),], col="blue", lwd=3, pch=19)
+text(can.ca.res$fi[c("TIME.POINT.T1","TIME.POINT.T19"),],c("T.1","T.19"),col="blue",pos=1, font=2, cex=1.5)
+points(can.ca.res$fi[grep("^PRODUCT",rownames(can.ca.res$fi)),],col=prod.cols,cex=2,pch=20)
+text(can.ca.res$fi[grep("^PRODUCT",rownames(can.ca.res$fi)),],c("P.A","P.B","P.C","P.D"),col= prod.cols,pos=c(1,3,3,3), font=2, cex=1.5)
+
+text(can.ca.res$fj, labels=rownames(can.ca.res$fj), pos=c(3,1,3,1,3,3), font=2)
+```
+
+The temporal aspect of TCATA can be more clearly seen with CanCA, which emphasizes particular *a priori* factors, such as time and products. The attribute structure from CanCA is virutally identical to that as in standard CA. However, when modeled explicitly, we can better see the effects of time, and the products. CanCA helps highlight that the structure of the attributes are likely confounded with time, and do not necessarily reflect the product-attribute associations we would interpret from this graph. This is further supported by the effective orthogonal relationship between time (axis 1; horizontal) and products (axis 2; vertical). 
+
+## ConCA
+
+```{r echo=F}
+## conditional CA
+a<-prettyPlot(con.ca.res$ExPosition.Data$fj,col=attr.cols,dev.new=F,constraints = lapply(con.ca.res$Plotting.Data$constraints,"*",1.1),main=NULL, xlab=paste0("Component 1 (",round(con.ca.res$ExPosition.Data$t,digits=1)[1],"%)"), ylab=paste0("Component 2 (",round(con.ca.res$ExPosition.Data$t,digits=1)[2],"%)"), fg.col="grey", bg.col="grey", display_names=FALSE,cex= con.ca.dots)
+
+
+color <- 0
+for (product in products){
+    color <- color + 1
+    xy <- con.ca.res$ExPosition.Data$fi[product == tcata.sim.data$DESIGNS[,1],1:2]
+
+    for(i in 2:nrow(xy)) {
+        lines(xy[c(i-1,i),], col=prod.cols[color], lwd=3, pch=19)
+    }
+}
+
+          
+text(con.ca.res$ExPosition.Data$fi[c(begin.locs[1],end.locs[1]),],c("PA.T1","PA.T19"),col=prod.cols[1],pos=2, font=2)
+text(con.ca.res$ExPosition.Data$fi[c(begin.locs[2],end.locs[2]),],c("PB.T1","PB.T19"),col=prod.cols[2],pos=2, font=2)
+text(con.ca.res$ExPosition.Data$fi[c(begin.locs[3],end.locs[3]),],c("PC.T1","PC.T19"),col=prod.cols[3],pos=c(2,3), font=2)
+text(con.ca.res$ExPosition.Data$fi[c(begin.locs[4],end.locs[4]),],c("PD.T1","PD.T19"),col=prod.cols[4],pos=c(2,4), font=2)
+
+text(con.ca.res$ExPosition.Data$fj, labels=rownames(con.ca.res$ExPosition.Data$fj), pos=c(1,4,1,4,1,4), font=2)
+
+```
+
+When the effects of time are removed we see a very different structure for the attributes, as we do here via ConCA. With time removed, we can more clearly seen the actual relationships between products and attributes, as opposed to how present attributes were over time (as with CA and CanCA).

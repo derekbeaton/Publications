@@ -1,4 +1,15 @@
-source('analyses.R')
+source('2_analyses.R')
+
+attr.cols <- 1 #"grey40"
+prod.cols <- c("#023FA5", "#BB7784", "#E28912", "#0FCFC0")
+products <- c("PA", "PB", "PC", "PD")
+
+standard.ca.dots <- 1.5 * (rowSums(standard.ca.res$ExPosition.Data$cj[,1:2]) - min(rowSums(standard.ca.res$ExPosition.Data$cj[,1:2]))) / (max(rowSums(standard.ca.res$ExPosition.Data$cj[,1:2])) - min(rowSums(standard.ca.res$ExPosition.Data$cj[,1:2]))) + 1
+
+can.ca.dots <- 1.5 * (rowSums((can.ca.res$v^2)[,1:2]) - min(rowSums((can.ca.res$v^2)[,1:2]))) / (max(rowSums((can.ca.res$v^2)[,1:2])) - min(rowSums((can.ca.res$v^2)[,1:2]))) + 1
+
+con.ca.dots <- 1.5 * (rowSums(con.ca.res$ExPosition.Data$cj[,1:2]) - min(rowSums(con.ca.res$ExPosition.Data$cj[,1:2]))) / (max(rowSums(con.ca.res$ExPosition.Data$cj[,1:2])) - min(rowSums(con.ca.res$ExPosition.Data$cj[,1:2]))) + 1
+
 
 begin.locs <- seq(1,nrow(standard.ca.res$ExPosition.Data$fi),nrow(standard.ca.res$ExPosition.Data$fi)/4)
 end.locs <- c(begin.locs[2:length(begin.locs)]-1,nrow(standard.ca.res$ExPosition.Data$fi))
